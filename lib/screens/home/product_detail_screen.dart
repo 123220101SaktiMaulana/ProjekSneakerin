@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shoe_store_app/models/product.dart';
-import 'package:shoe_store_app/api/product_api.dart'; // Untuk memanggil API detail produk
-import 'package:shoe_store_app/api/order_api.dart'; // Untuk memanggil API order
-import 'package:shoe_store_app/providers/auth_provider.dart'; // Untuk mendapatkan user yang login
-import 'package:shoe_store_app/screens/profile/order_history_screen.dart'; // Navigasi ke riwayat pembelian
+import 'package:shoe_store_app/api/product_api.dart';
+import 'package:shoe_store_app/api/order_api.dart';
+import 'package:shoe_store_app/api/utility_api.dart'; // Import UtilityApi baru
+import 'package:shoe_store_app/providers/auth_provider.dart';
+import 'package:shoe_store_app/screens/profile/order_history_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final int productId;
@@ -19,32 +20,62 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Product? _product;
   bool _isLoading = true;
   String? _errorMessage;
-  int _selectedQuantity = 1; // Default quantity for purchase
+  int _selectedQuantity = 1;
+
+  // State untuk Konversi Mata Uang
+  String _selectedCurrency = 'IDR'; // Default ke IDR
+  double _convertedPrice = 0.0;
+  double _convertedTotalPrice = 0.0;
+  Map<String, double> _currencyRates = {}; // Untuk menyimpan kurs
+
+  // List mata uang yang didukung (harus sama dengan backend)
+  final List<String> _supportedCurrencies = ['IDR', 'USD', 'SGD', 'MYR'];
 
   @override
   void initState() {
     super.initState();
-    _fetchProductDetails();
+    _fetchProductDetailsAndRates(); // Memuat detail produk dan kurs
   }
 
-  Future<void> _fetchProductDetails() async {
+  Future<void> _fetchProductDetailsAndRates() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
     try {
       final product = await ProductApi().getProductById(widget.productId);
+      final ratesData = await UtilityApi().getCurrencyRates(); // Ambil kurs dari backend
+
       setState(() {
         _product = product;
+        _currencyRates = Map<String, double>.from(ratesData['rates']);
         _isLoading = false;
+        _updateConvertedPrices(); // Hitung harga konversi awal setelah data ada
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'Failed to load product details: ${e.toString()}';
+        _errorMessage = 'Failed to load details or rates: ${e.toString()}';
         _isLoading = false;
       });
-      print('Error fetching product details: $e');
+      print('Error fetching product details or rates: $e');
     }
+  }
+
+  void _updateConvertedPrices() {
+    if (_product == null || _currencyRates.isEmpty) {
+      return;
+    }
+
+    // Asumsi harga dasar produk di backend adalah IDR (sesuai constants.js kita)
+    double basePriceInIdr = _product!.price;
+
+    // Untuk mengonversi dari IDR ke mata uang terpilih:
+    // Cukup kalikan harga dasar dengan kurs mata uang target yang diberikan oleh backend (1 IDR = X USD, dst.)
+    _convertedPrice = basePriceInIdr * (_currencyRates[_selectedCurrency] ?? 1.0);
+    _convertedTotalPrice = _convertedPrice * _selectedQuantity;
+
+    // Trigger rebuild agar UI diperbarui
+    setState(() {});
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
@@ -75,18 +106,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     });
 
     try {
-      // Panggil API order
       final success = await OrderApi().createOrder(
         productId: _product!.id,
         quantity: _selectedQuantity,
-        shippingAddress: authProvider.user!.address!, // Gunakan alamat dari user yang login
+        shippingAddress: authProvider.user!.address!,
       );
 
       if (success) {
         _showSnackBar('Purchase successful!');
-        // Opsional: Refresh product details to show updated stock
-        await _fetchProductDetails();
-        // Navigasi ke halaman riwayat pembelian (opsional, bisa juga hanya pop)
+        // Refresh product details and rates to show updated stock
+        await _fetchProductDetailsAndRates(); 
+        // Navigasi ke halaman riwayat pembelian
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const OrderHistoryScreen()),
         );
@@ -129,14 +159,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     fit: BoxFit.contain,
                                     errorBuilder: (context, error, stackTrace) {
                                       return Image.asset(
-                                        'assets/placeholder_shoe.png', // Placeholder jika gambar error
+                                        'assets/paperbag.jpg',
                                         height: 250,
                                         fit: BoxFit.contain,
                                       );
                                     },
                                   )
                                 : Image.asset(
-                                    'assets/placeholder_shoe.png', // Placeholder jika tidak ada URL
+                                    'assets/paperbag.jpg',
                                     height: 250,
                                     fit: BoxFit.contain,
                                   ),
@@ -163,9 +193,37 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           ),
                           const SizedBox(height: 16),
 
-                          // Harga
+                          // Pemilihan Mata Uang
+                          Row(
+                            children: [
+                              const Text(
+                                'Tampilkan Harga dalam: ',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                              DropdownButton<String>(
+                                value: _selectedCurrency,
+                                items: _supportedCurrencies.map((String currency) {
+                                  return DropdownMenuItem<String>(
+                                    value: currency,
+                                    child: Text(currency),
+                                  );
+                                }).toList(),
+                                onChanged: (String? newValue) {
+                                  if (newValue != null) {
+                                    setState(() {
+                                      _selectedCurrency = newValue;
+                                      _updateConvertedPrices(); // Perbarui harga saat mata uang berubah
+                                    });
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+
+                          // Harga Produk (Telah Dikonversi)
                           Text(
-                            'Rp ${_product!.price.toStringAsFixed(0)}',
+                            '${_selectedCurrency} ${_convertedPrice.toStringAsFixed(2)}',
                             style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
@@ -210,7 +268,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                 ),
                                 DropdownButton<int>(
                                   value: _selectedQuantity,
-                                  items: List.generate(_product!.stock > 10 ? 10 : _product!.stock, (index) => index + 1) // Batasi pilihan quantity sampai 10 atau stok tersedia
+                                  items: List.generate(_product!.stock > 10 ? 10 : _product!.stock, (index) => index + 1)
                                       .map((qty) => DropdownMenuItem<int>(
                                             value: qty,
                                             child: Text(qty.toString()),
@@ -220,11 +278,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     if (value != null) {
                                       setState(() {
                                         _selectedQuantity = value;
+                                        _updateConvertedPrices(); // Perbarui total harga saat kuantitas berubah
                                       });
                                     }
                                   },
                                 ),
                               ],
+                            ),
+                          const SizedBox(height: 24),
+
+                          // Total Harga Pembelian (Telah Dikonversi)
+                          if (_product!.stock > 0)
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: Text(
+                                'Total: ${_selectedCurrency} ${_convertedTotalPrice.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.deepOrange,
+                                ),
+                              ),
                             ),
                           const SizedBox(height: 24),
 
@@ -236,7 +310,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     ? ElevatedButton(
                                         onPressed: _buyNow,
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.deepPurple, // Warna tombol
+                                          backgroundColor: Colors.deepPurple,
                                           foregroundColor: Colors.white,
                                           padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
                                           shape: RoundedRectangleBorder(

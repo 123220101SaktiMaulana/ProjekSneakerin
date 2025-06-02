@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shoe_store_app/models/user.dart';
 import 'package:shoe_store_app/services/local_storage_service.dart';
 import 'package:shoe_store_app/api/auth_api.dart';
+import 'package:shoe_store_app/api/user_api.dart'; // Import UserApi jika diperlukan
 
 class AuthProvider extends ChangeNotifier {
   User? _user;
@@ -15,6 +16,7 @@ class AuthProvider extends ChangeNotifier {
 
   final LocalStorageService _localStorageService = LocalStorageService();
   final AuthApi _authApi = AuthApi();
+  final UserApi _userApi = UserApi(); // Inisialisasi UserApi
 
   Future<void> initAuth() async {
     _isLoading = true;
@@ -78,5 +80,24 @@ class AuthProvider extends ChangeNotifier {
     _token = null;
     await _localStorageService.deleteJwtToken();
     notifyListeners();
+  }
+
+Future<bool> updateUserProfile(Map<String, dynamic> userData) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final updatedUser = await _userApi.updateProfile(userData);
+      _user = updatedUser; // Update data user di provider
+      notifyListeners();
+      return true;
+    } catch (e) {
+      print('Error updating user profile: $e');
+      // Handle error, mungkin show snackbar
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 }
