@@ -18,17 +18,19 @@ class ShoeStore {
     this.distanceKm,
   });
 
-  factory ShoeStore.fromJson(Map<String, dynamic> json) {
-    return ShoeStore(
-      id: json['id'] as int? ?? 0, // Default 0 jika null
-      name: json['name'] as String? ?? 'Unknown Store',
-      address: json['address'] as String?,
-      latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0, // Handle num? to double
-      longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
-      phoneNumber: json['phone_number'] as String?,
-      distanceKm: (json['distance_km'] as num?)?.toDouble(), // Ini bisa null jika backend tidak mengembalikan
-    );
-  }
+ factory ShoeStore.fromJson(Map<String, dynamic> json) {
+  return ShoeStore(
+    id: json['id'] as int? ?? 0,
+    name: json['name'] as String? ?? 'Unknown Store',
+    address: json['address'] as String?,
+    // UBAH BARIS INI:
+    latitude: double.parse(json['latitude'].toString()), // Konversi string ke double
+    longitude: double.parse(json['longitude'].toString()), // Konversi string ke double
+    phoneNumber: json['phone_number'] as String?,
+    // UBAH BARIS INI:
+    distanceKm: json['distance_km'] != null ? double.parse(json['distance_km'].toString()) : null, // Handle null dan konversi
+  );
+}
 
   Map<String, dynamic> toJson() {
     return {

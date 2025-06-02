@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shoe_store_app/providers/auth_provider.dart';
+import 'package:shoe_store_app/screens/locations/store_locator_screen.dart';
 import 'package:shoe_store_app/screens/profile/user_profile_edit_screen.dart'; // Akan dibuat
 import 'package:shoe_store_app/screens/currency_converter_screen.dart'; // Currency converter screen
 
@@ -75,6 +76,16 @@ class ProfileScreen extends StatelessWidget {
                       );
                     },
                     child: const Text('Currency Converter'),
+                  ),
+                  // lib/screens/profile/profile_screen.dart
+                  // ... (setelah tombol Currency Converter) ...
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (context) => const StoreLocatorScreen()),
+                      );
+                    },
+                    child: const Text('Nearby Stores'),
                   ),
                 ],
               ),

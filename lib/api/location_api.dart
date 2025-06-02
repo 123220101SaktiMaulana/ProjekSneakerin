@@ -4,7 +4,9 @@ import 'package:http/http.dart' as http;
 import 'package:shoe_store_app/services/local_storage_service.dart';
 import 'package:shoe_store_app/models/shoe_store.dart'; // Akan dibuat setelah ini
 
-const String baseUrl = 'http://localhost:5000/api'; 
+//const String baseUrl = 'http://localhost:5000/api'; 
+const String baseUrl = 'http://192.168.1.4:5000/api'; 
+
 
 class LocationApi {
   final LocalStorageService _localStorageService = LocalStorageService();

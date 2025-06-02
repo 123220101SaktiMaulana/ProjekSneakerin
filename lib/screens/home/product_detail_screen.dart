@@ -48,7 +48,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
       setState(() {
         _product = product;
-        _currencyRates = Map<String, double>.from(ratesData['rates']);
+        // Lebih toleran terhadap tipe data rates (int/double)
+        _currencyRates = {};
+        (ratesData['rates'] as Map<String, dynamic>).forEach((key, value) {
+          _currencyRates[key] = (value is num) ? value.toDouble() : double.tryParse(value.toString()) ?? 1.0;
+        });
         _isLoading = false;
         _updateConvertedPrices(); // Hitung harga konversi awal setelah data ada
       });
