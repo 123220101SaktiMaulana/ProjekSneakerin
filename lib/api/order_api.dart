@@ -5,7 +5,8 @@ import 'package:shoe_store_app/models/order.dart'; // Akan kita buat setelah ini
 import 'package:shoe_store_app/models/product.dart'; // Untuk include product details in order
 
 // Pastikan baseUrl ini sama dengan yang di auth_api.dart dan product_api.dart
-const String baseUrl = 'http://localhost:5000/api'; 
+//const String baseUrl = 'http://localhost:5000/api'; 
+const String baseUrl = 'http://192.168.1.4:5000/api'; 
 
 class OrderApi {
   final LocalStorageService _localStorageService = LocalStorageService();

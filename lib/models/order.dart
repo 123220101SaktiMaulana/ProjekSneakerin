@@ -6,9 +6,9 @@ class Order {
   final int productId;
   final int quantity;
   final double priceAtPurchase;
-  final DateTime orderDate;
-  final String shippingAddress;
-  final String status;
+  final DateTime? orderDate; // <-- PASTIKAN INI NULLABLE
+  final String? shippingAddress; // <-- PASTIKAN INI NULLABLE
+  final String? status; // <-- PASTIKAN INI NULLABLE
   final Product? productDetails; // Detail produk yang dibeli
 
   Order({
@@ -30,9 +30,9 @@ class Order {
       productId: json['product_id'],
       quantity: json['quantity'],
       priceAtPurchase: double.parse(json['price_at_purchase'].toString()), // Konversi string ke double
-      orderDate: DateTime.parse(json['order_date']),
-      shippingAddress: json['shipping_address'],
-      status: json['status'],
+      orderDate: json['order_date'] != null ? DateTime.parse(json['order_date']) : null, // Handle null di sini
+      shippingAddress: json['shipping_address'] as String?, // Casting ke nullable
+      status: json['status'] as String?, // Casting ke nullable
       productDetails: json['Product'] != null ? Product.fromJson(json['Product']) : null,
     );
   }
@@ -44,7 +44,7 @@ class Order {
       'product_id': productId,
       'quantity': quantity,
       'price_at_purchase': priceAtPurchase,
-      'order_date': orderDate.toIso8601String(),
+      'order_date': orderDate?.toIso8601String(),
       'shipping_address': shippingAddress,
       'status': status,
       'product_details': productDetails?.toJson(),

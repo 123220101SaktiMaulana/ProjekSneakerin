@@ -48,6 +48,8 @@ dependencies:
   # Untuk fitur LBS (Location-Based Services)
   geolocator: ^11.0.0
 
+  url_launcher: ^6.2.5 
+
   # Untuk notifikasi lokal
   flutter_local_notifications: ^17.0.0
 
