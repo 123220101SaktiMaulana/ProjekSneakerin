@@ -1,12 +1,12 @@
 // lib/screens/locations/store_locator_screen.dart
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart'; // Untuk mendapatkan lokasi
+import 'package:geolocator/geolocator.dart';
 import 'package:shoe_store_app/api/location_api.dart';
 import 'package:shoe_store_app/models/shoe_store.dart';
-import 'package:url_launcher/url_launcher.dart'; // Untuk membuka peta
+import 'package:url_launcher/url_launcher.dart'; // Ini sudah ada dan akan kita pakai!
 
 class StoreLocatorScreen extends StatefulWidget {
-  const StoreLocatorScreen({super.key});
+  const StoreLocatorScreen({Key? key}) : super(key: key);
 
   @override
   State<StoreLocatorScreen> createState() => _StoreLocatorScreenState();
@@ -16,7 +16,7 @@ class _StoreLocatorScreenState extends State<StoreLocatorScreen> {
   List<ShoeStore> _nearbyStores = [];
   bool _isLoading = false;
   String? _errorMessage;
-  Position? _currentPosition; // Untuk menyimpan lokasi user
+  Position? _currentPosition;
 
   @override
   void initState() {
@@ -33,11 +33,10 @@ class _StoreLocatorScreenState extends State<StoreLocatorScreen> {
     bool serviceEnabled;
     LocationPermission permission;
 
-    // Test if location services are enabled.
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       setState(() {
-        _errorMessage = 'Location services are disabled. Please enable them.';
+        _errorMessage = 'Layanan lokasi tidak aktif. Mohon aktifkan.';
         _isLoading = false;
       });
       return;
@@ -48,7 +47,7 @@ class _StoreLocatorScreenState extends State<StoreLocatorScreen> {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
         setState(() {
-          _errorMessage = 'Location permissions are denied.';
+          _errorMessage = 'Izin lokasi ditolak.';
           _isLoading = false;
         });
         return;
@@ -57,22 +56,24 @@ class _StoreLocatorScreenState extends State<StoreLocatorScreen> {
 
     if (permission == LocationPermission.deniedForever) {
       setState(() {
-        _errorMessage = 'Location permissions are permanently denied. Please enable from settings.';
+        _errorMessage =
+            'Izin lokasi ditolak secara permanen. Mohon aktifkan dari pengaturan.';
         _isLoading = false;
       });
       return;
     }
 
-    // When we reach here, permissions are granted and we can
-    // continue accessing the position of the device.
     try {
       _currentPosition = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-      await _fetchNearbyStores(_currentPosition!.latitude, _currentPosition!.longitude);
+      await _fetchNearbyStores(
+        _currentPosition!.latitude,
+        _currentPosition!.longitude,
+      );
     } catch (e) {
       setState(() {
-        _errorMessage = 'Error getting location: ${e.toString()}';
+        _errorMessage = 'Gagal mendapatkan lokasi: ${e.toString()}';
         _isLoading = false;
       });
       print('Error getting location: $e');
@@ -85,79 +86,103 @@ class _StoreLocatorScreenState extends State<StoreLocatorScreen> {
       _errorMessage = null;
     });
     try {
-      final stores = await LocationApi().getNearbyStores(latitude: lat, longitude: lon);
+      final stores = await LocationApi().getNearbyStores(
+        latitude: lat,
+        longitude: lon,
+      );
       setState(() {
         _nearbyStores = stores;
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'Failed to load nearby stores: ${e.toString()}';
+        _errorMessage = 'Gagal memuat toko terdekat: ${e.toString()}';
         _isLoading = false;
       });
       print('Error fetching nearby stores: $e');
     }
   }
 
-  // Fungsi untuk membuka Google Maps
-  Future<void> _launchMaps(double lat, double lon) async {
-    final uri = Uri.parse('google.navigation:q=$lat,$lon&mode=d'); // d for driving
+  // Fungsi untuk membuka Google Maps menggunakan URL scheme
+  Future<void> _launchMaps(double latitude, double longitude, String storeName) async {
+    // Gunakan URL scheme Google Maps untuk navigasi
+    final Uri uri = Uri.parse('google.navigation:q=$latitude,$longitude&mode=d'); // mode=d untuk driving
+
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     } else {
-      throw 'Could not launch $uri';
+      // Jika scheme google.navigation tidak bisa dibuka (misal: Google Maps tidak terinstal),
+      // coba fallback ke URL web Google Maps
+      final Uri webUri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$latitude,$longitude&travelmode=driving');
+      if (await canLaunchUrl(webUri)) {
+        await launchUrl(webUri);
+      } else {
+        print('Could not launch $uri or $webUri');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Tidak dapat membuka peta untuk $storeName. Pastikan Google Maps terinstal.')),
+        );
+      }
     }
   }
-
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Nearby Shoe Stores'),
-      ),
+      appBar: AppBar(title: const Text('Toko Sepatu Terdekat')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
-              ? Center(child: Text(_errorMessage!))
-              : _nearbyStores.isEmpty
-                  ? const Center(child: Text('No nearby stores found or permissions not granted.'))
-                  : RefreshIndicator(
-                      onRefresh: _determinePositionAndFetchStores, // Refresh akan coba dapat lokasi ulang
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(16.0),
-                        itemCount: _nearbyStores.length,
-                        itemBuilder: (ctx, i) {
-                          final store = _nearbyStores[i];
-                          return Card(
-                            margin: const EdgeInsets.symmetric(vertical: 8.0),
-                            elevation: 3,
-                            child: ListTile(
-                              leading: const Icon(Icons.store),
-                              title: Text(
-                                store.name,
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(store.address ?? 'No address'),
-                                  if (store.distanceKm != null)
-                                    Text('${store.distanceKm!.toStringAsFixed(2)} km away'),
-                                  if (store.phoneNumber != null)
-                                    Text('Telp: ${store.phoneNumber}'),
-                                ],
-                              ),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.navigation, color: Colors.blue),
-                                onPressed: () {
-                                  _launchMaps(store.latitude, store.longitude);
-                                },
-                              ),
+          ? Center(child: Text(_errorMessage!))
+          : _nearbyStores.isEmpty
+          ? const Center(
+              child: Text(
+                'Tidak ada toko terdekat yang ditemukan atau izin lokasi tidak diberikan.',
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _determinePositionAndFetchStores,
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16.0),
+                itemCount: _nearbyStores.length,
+                itemBuilder: (ctx, i) {
+                  final store = _nearbyStores[i];
+                  return Card(
+                    margin: const EdgeInsets.symmetric(vertical: 8.0),
+                    elevation: 3,
+                    child: ListTile(
+                      leading: const Icon(Icons.store),
+                      title: Text(
+                        store.name,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(store.address ?? 'Tidak ada alamat'),
+                          if (store.distanceKm != null)
+                            Text(
+                              '${store.distanceKm!.toStringAsFixed(2)} km jauhnya',
                             ),
+                          if (store.phoneNumber != null)
+                            Text('Telp: ${store.phoneNumber}'),
+                        ],
+                      ),
+                      trailing: ElevatedButton.icon(
+                        onPressed: () {
+                          _launchMaps(
+                            store.latitude,
+                            store.longitude,
+                            store.name,
                           );
                         },
+                        icon: const Icon(Icons.directions),
+                        label: const Text('Navigasi'),
                       ),
                     ),
+                  );
+                },
+              ),
+            ),
     );
   }
 }

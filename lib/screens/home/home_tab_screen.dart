@@ -1,5 +1,8 @@
+import 'dart:async'; // Import untuk StreamSubscription
+import 'dart:math'; // Import untuk sqrt
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sensors_plus/sensors_plus.dart'; // Import sensor
 import 'package:shoe_store_app/providers/product_provider.dart';
 import 'package:shoe_store_app/models/product.dart';
 import 'package:shoe_store_app/screens/home/product_detail_screen.dart';
@@ -17,22 +20,59 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
   double? _minPriceFilter;
   double? _maxPriceFilter;
 
-  // List contoh merek (bisa diambil dari API nanti jika ada endpoint brands)
   final List<String> _availableBrands = ['Nike', 'Adidas', 'Puma', 'New Balance', 'Converse', 'Other'];
+
+  // Variabel untuk deteksi goyangan
+  StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
+  final double _shakeThreshold = 15.0; // Ambang batas kekuatan goyangan
+  int _shakeCount = 0; // Untuk mendeteksi goyangan yang disengaja
+  DateTime _lastShakeTime = DateTime.now(); // Untuk debouncing
 
   @override
   void initState() {
     super.initState();
-    // Panggil fetchProducts saat HomeTabScreen pertama kali dimuat
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _fetchProductsWithFilters();
+    _fetchProductsWithFilters();
+    _initShakeDetection(); // Inisialisasi deteksi goyangan
+  }
+
+  @override
+  void dispose() {
+    _accelerometerSubscription?.cancel(); // Pastikan subscription ditutup
+    _searchController.dispose(); // Bersihkan controller
+    super.dispose();
+  }
+
+  // Fungsi untuk inisialisasi deteksi goyangan
+  void _initShakeDetection() {
+    _accelerometerSubscription = accelerometerEvents.listen((AccelerometerEvent event) {
+      // Hitung kekuatan goyangan (magnitude dari vektor percepatan)
+      double acceleration = event.x * event.x + event.y * event.y + event.z * event.z;
+      double magnitude = sqrt(acceleration);
+
+      // Deteksi goyangan jika magnitudo melebihi ambang batas
+      // Dan ada jeda waktu yang cukup sejak goyangan terakhir (debouncing)
+      if (magnitude > _shakeThreshold && DateTime.now().difference(_lastShakeTime).inMilliseconds > 500) {
+        _lastShakeTime = DateTime.now();
+        _shakeCount++;
+
+        // Jika ada beberapa goyangan dalam waktu singkat, anggap itu reset
+        if (_shakeCount >= 2) { // Butuh 2 goyangan cepat untuk reset
+          _shakeCount = 0; // Reset hitungan
+          _resetSearchAndFilters(); // Panggil fungsi reset
+          ScaffoldMessenger.of(context).showSnackBar( // Feedback ke user
+            const SnackBar(content: Text('Filter dan Pencarian direset!')),
+          );
+        }
+      } else if (DateTime.now().difference(_lastShakeTime).inSeconds > 2) {
+        // Reset shakeCount jika tidak ada goyangan dalam 2 detik
+        _shakeCount = 0;
+      }
     });
   }
 
   // Fungsi untuk memuat produk dengan filter
   Future<void> _fetchProductsWithFilters() async {
-    // Pastikan context valid saat memanggil Provider
-    if (!mounted) return; // Penting untuk menghindari error jika widget sudah di-dispose
+    if (!mounted) return;
 
     await Provider.of<ProductProvider>(context, listen: false).fetchProducts(
       search: _searchController.text.isEmpty ? null : _searchController.text,
@@ -42,16 +82,25 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
     );
   }
 
+  // Fungsi untuk mereset pencarian dan filter ke default
+  void _resetSearchAndFilters() {
+    setState(() {
+      _searchController.clear();
+      _selectedBrandFilter = null;
+      _minPriceFilter = null;
+      _maxPriceFilter = null;
+    });
+    _fetchProductsWithFilters(); // Muat ulang produk setelah reset
+  }
+
   // Fungsi untuk menampilkan filter bottom sheet
   void _showFilterBottomSheet() {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // Agar bisa full screen
+      isScrollControlled: true,
       builder: (context) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setStateBottomSheet) {
-            // Pastikan Anda memanggil _fetchProductsWithFilters() dari state di dalam HomeTabScreen
-            // bukan dari state di dalam bottom sheet, untuk update list produk
             return Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -69,15 +118,13 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                   ),
                   const Divider(),
                   const SizedBox(height: 10),
-
-                  // Filter Merek
                   Text('Brand', style: Theme.of(context).textTheme.titleMedium),
                   DropdownButton<String>(
                     isExpanded: true,
                     hint: const Text('Select Brand'),
                     value: _selectedBrandFilter,
                     onChanged: (String? newValue) {
-                      setStateBottomSheet(() { // Update state di bottom sheet
+                      setStateBottomSheet(() {
                         _selectedBrandFilter = newValue;
                       });
                     },
@@ -92,8 +139,6 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                     ],
                   ),
                   const SizedBox(height: 10),
-
-                  // Filter Harga Minimum
                   Text('Min Price', style: Theme.of(context).textTheme.titleMedium),
                   TextField(
                     keyboardType: TextInputType.number,
@@ -103,8 +148,6 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                     },
                   ),
                   const SizedBox(height: 10),
-
-                  // Filter Harga Maksimum
                   Text('Max Price', style: Theme.of(context).textTheme.titleMedium),
                   TextField(
                     keyboardType: TextInputType.number,
@@ -114,21 +157,20 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                     },
                   ),
                   const SizedBox(height: 20),
-
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () {
-                            setState(() { // Update state di HomeTabScreen (stateful widget utama)
+                            setState(() {
                               _selectedBrandFilter = null;
                               _minPriceFilter = null;
                               _maxPriceFilter = null;
-                              _searchController.clear(); // Clear search juga
+                              _searchController.clear();
                             });
-                            _fetchProductsWithFilters(); // Panggil ulang produk
-                            Navigator.pop(context); // Tutup bottom sheet
+                            _fetchProductsWithFilters();
+                            Navigator.pop(context);
                           },
                           child: const Text('Clear Filter'),
                         ),
@@ -137,11 +179,9 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () {
-                            setState(() { // Update state di HomeTabScreen
-                              // Nilai filter sudah diupdate oleh onChanged TextField dan DropdownButton
-                            });
-                            _fetchProductsWithFilters(); // Panggil ulang produk dengan filter
-                            Navigator.pop(context); // Tutup bottom sheet
+                            setState(() {});
+                            _fetchProductsWithFilters();
+                            Navigator.pop(context);
                           },
                           child: const Text('Apply Filter'),
                         ),
@@ -162,11 +202,8 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
   Widget build(BuildContext context) {
     final productProvider = Provider.of<ProductProvider>(context);
 
-    // Ini adalah Scaffold body, jadi kita bisa menggunakan Column secara langsung
-    // atau di wrap dengan Container/SizedBox jika perlu dimensi tertentu.
     return Column(
       children: [
-        // Search Bar dan Filter di dalam Body
         Padding(
           padding: const EdgeInsets.all(8.0),
           child: Row(
@@ -182,7 +219,7 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                       borderSide: BorderSide.none,
                     ),
                     filled: true,
-                    fillColor: Colors.grey[200], // Warna latar belakang search bar
+                    fillColor: Colors.grey[200],
                     contentPadding: EdgeInsets.zero,
                   ),
                   onSubmitted: (value) {
@@ -197,7 +234,6 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
             ],
           ),
         ),
-        // Sisa layar untuk daftar produk
         Expanded(
           child: productProvider.isLoading
               ? const Center(child: CircularProgressIndicator())

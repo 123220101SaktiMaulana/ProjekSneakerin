@@ -4,8 +4,8 @@ import 'package:shoe_store_app/models/user.dart';
 
 // Ganti ini dengan IP localhost Anda untuk emulator Android
 // Jika di perangkat fisik, gunakan IP lokal komputer Anda (misal: http://192.168.1.5:5000)
-const String baseUrl = 'http://192.168.1.4:5000/api'; 
-//const String baseUrl = 'http://localhost:5000/api';
+// const String baseUrl = 'http://192.168.71.144:5000/api'; 
+const String baseUrl = 'http://localhost:5000/api';
 
 
 class AuthApi {

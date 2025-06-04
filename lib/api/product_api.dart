@@ -4,8 +4,8 @@ import 'package:shoe_store_app/models/product.dart';
 import 'package:shoe_store_app/services/local_storage_service.dart'; // Untuk mendapatkan token
 
 // Pastikan baseUrl ini sama dengan yang di auth_api.dart
-//const String baseUrl = 'http://localhost:5000/api'; 
-const String baseUrl = 'http://192.168.1.4:5000/api'; 
+const String baseUrl = 'http://localhost:5000/api'; 
+// const String baseUrl = 'http://192.168.71.144:5000/api'; 
 
 class ProductApi {
   final LocalStorageService _localStorageService = LocalStorageService();
