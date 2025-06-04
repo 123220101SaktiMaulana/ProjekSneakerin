@@ -56,6 +56,8 @@ dependencies:
   # Untuk akses sensor
   sensors_plus: ^5.0.0
 
+  carousel_slider: ^5.0.0 # <--- TAMBAHKAN INI
+
   cupertino_icons: ^1.0.2
   provider: ^6.1.5
 
@@ -85,6 +87,9 @@ flutter:
   assets:
   - assets/paperbag.jpg
   - assets/gweh.jpg
+  - assets/iklan1.jpg
+  - assets/ads2.jpg
+  - assets/ads3.jpg
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
