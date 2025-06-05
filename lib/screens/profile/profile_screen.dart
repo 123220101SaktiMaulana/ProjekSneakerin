@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:shoe_store_app/providers/auth_provider.dart';
 import 'package:shoe_store_app/screens/locations/store_locator_screen.dart';
 import 'package:shoe_store_app/screens/profile/user_profile_edit_screen.dart';
-import 'package:shoe_store_app/screens/currency_converter_screen.dart';//dari folder utils
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -15,134 +14,301 @@ class ProfileScreen extends StatelessWidget {
     final user = authProvider.user;
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('My Profile'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'My Profile',
+          style: TextStyle(
+            color: Colors.black87,
+            fontSize: 22,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const UserProfileEditScreen()),
-              );
-            },
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.edit_outlined, color: Colors.black54),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const UserProfileEditScreen(),
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),
       body: user == null
-          ? const Center(child: Text('Please login to view your profile.'))
-          : SingleChildScrollView( // Tambahkan SingleChildScrollView agar bisa di-scroll
-              padding: const EdgeInsets.all(16.0),
+          ? const Center(
+              child: Text(
+                'Please login to view your profile.',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            )
+          : SingleChildScrollView(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Foto Profil Statis (Contoh: foto Anda atau logo)
-                  Center(
+                  // Header Section with Profile Picture
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
                     child: Column(
                       children: [
-                        ClipOval( // Untuk membuat gambar bulat
-                          child: Image.asset(
-                            'assets/gweh.jpg', // <--- GANTI DENGAN NAMA FILE FOTO ANDA
-                            width: 100,
-                            height: 100,
-                            fit: BoxFit.cover,
+                        // Profile Picture with Shadow
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.shade300,
+                                blurRadius: 20,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
+                          ),
+                          child: ClipOval(
+                            child: Image.asset(
+                              'assets/gweh.jpg',
+                              width: 120,
+                              height: 120,
+                              fit: BoxFit.cover,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 16),
+                        // Name
                         Text(
-                          user.fullName ?? user.username, // Tampilkan nama lengkap atau username
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                          user.fullName ?? user.username,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 4),
+                        Text(
+                          '@${user.username}',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
                       ],
                     ),
                   ),
 
-                  // Informasi Profil User
-                  Text(
-                    'Username: ${user.username}',
-                    style: const TextStyle(fontSize: 18),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Email: ${user.email}',
-                    style: const TextStyle(fontSize: 18),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Full Name: ${user.fullName ?? 'Not set'}',
-                    style: const TextStyle(fontSize: 18),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Address: ${user.address ?? 'Not set'}',
-                    style: const TextStyle(fontSize: 18),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Phone: ${user.phoneNumber ?? 'Not set'}',
-                    style: const TextStyle(fontSize: 18),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Tombol-tombol Navigasi
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (context) => const StoreLocatorScreen()),
-                      );
-                    },
-                    child: const Text('Nearby Stores'),
-                  ),
-                  const SizedBox(height: 10), // Jarak antar tombol
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (context) => const CurrencyConverterScreen()),
-                      );
-                    },
-                    child: const Text('Currency Converter'),
-                  ),
-                  const SizedBox(height: 10), // Jarak antar tombol
-                  // Tombol View Order History (jika belum ada di bottom nav)
-                  // Jika sudah ada di bottom nav, tombol ini bisa dihapus atau diganti
-                  // ElevatedButton(
-                  //   onPressed: () {
-                  //     Navigator.of(context).push(MaterialPageRoute(builder: (context) => const OrderHistoryScreen()));
-                  //   },
-                  //   child: const Text('View Order History'),
-                  // ),
-                  // const SizedBox(height: 20),
-
-                  const Divider(height: 40, thickness: 1), // Garis pemisah
-
-                  // Bagian Pesan dan Kesan Mata Kuliah
-                  Center(
+                  // Profile Information Cards
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
                       children: [
-                        const Text(
-                          'Pesan dan Kesan Mata Kuliah',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                          textAlign: TextAlign.center,
+                        _buildInfoCard(
+                          'Email',
+                          user.email,
+                          Icons.email_outlined,
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
+                        _buildInfoCard(
+                          'Full Name',
+                          user.fullName ?? 'Not set',
+                          Icons.person_outline,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildInfoCard(
+                          'Address',
+                          user.address ?? 'Not set',
+                          Icons.location_on_outlined,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildInfoCard(
+                          'Phone',
+                          user.phoneNumber ?? 'Not set',
+                          Icons.phone_outlined,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  // Action Button
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
+                    child: _buildActionButton(
+                      context,
+                      'Find Nearby Stores',
+                      Icons.location_on_outlined,
+                      () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const StoreLocatorScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(height: 40),
+
+                  // Message Section
+                  Container(
+                    margin: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.message_outlined,
+                              color: Colors.grey.shade600,
+                            ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Pesan dan Kesan Mata Kuliah',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
                         const Text(
                           'Mata kuliah Teknologi dan Pemrograman Mobile ini sangat memberikan wawasan baru bagi saya. '
                           'Meskipun banyak tantangan dalam memahami konsep dan implementasi, '
                           'namun proses belajar Flutter dan integrasi backend sangat berharga. '
                           'Saya merasa kemampuan saya dalam pengembangan aplikasi mobile meningkat pesat. '
                           'Terima kasih banyak atas materi dan bimbingan yang telah diberikan!',
-                          style: TextStyle(fontSize: 16),
-                          textAlign: TextAlign.justify, // Teks rata kiri kanan
+                          style: TextStyle(
+                            fontSize: 15,
+                            height: 1.6,
+                            color: Colors.black87,
+                          ),
+                          textAlign: TextAlign.justify,
                         ),
-                        const SizedBox(height: 20),
-                        // Anda bisa menambahkan foto kedua di sini jika ada
-                        // Image.asset('assets/gambar_kesan.jpg', height: 150),
                       ],
                     ),
                   ),
+
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildInfoCard(String label, String value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade100,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: Colors.grey.shade600, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.black87,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton(
+    BuildContext context,
+    String title,
+    IconData icon,
+    VoidCallback onPressed,
+  ) {
+    return Container(
+      width: double.infinity,
+      height: 56,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade200,
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.black87,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 20),
+            const SizedBox(width: 12),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
