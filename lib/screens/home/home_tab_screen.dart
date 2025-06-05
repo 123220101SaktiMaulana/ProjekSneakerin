@@ -17,16 +17,32 @@ class HomeTabScreen extends StatefulWidget {
 
 class _HomeTabScreenState extends State<HomeTabScreen> {
   final TextEditingController _searchController = TextEditingController();
-  String? _selectedBrandFilter;
+
+  // Filter variables - support multiple selection
+  Set<String> _selectedBrandFilters = <String>{};
   double? _minPriceFilter;
   double? _maxPriceFilter;
 
   // Untuk kategori
   String _selectedCategory = 'All';
-  final List<String> _categories = ['All', 'Running', 'Sneakers', 'Formal', 'Boots'];
+  final List<String> _categories = [
+    'All',
+    'Running',
+    'Sneakers',
+    'Formal',
+    'Boots',
+  ];
 
-  // List contoh merek (bisa diambil dari API nanti jika ada endpoint brands)
-  final List<String> _availableBrands = ['Nike', 'Adidas', 'Puma', 'New Balance', 'Converse', 'Other'];
+  // List contoh merek tanpa 'Other'
+  final List<String> _availableBrands = [
+    'Nike',
+    'Adidas',
+    'Puma',
+    'New Balance',
+    'Converse',
+    'Vans',
+    'Reebok',
+  ];
 
   // Variabel untuk deteksi goyangan
   StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
@@ -56,10 +72,15 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
   }
 
   void _initShakeDetection() {
-    _accelerometerSubscription = accelerometerEvents.listen((AccelerometerEvent event) {
-      double magnitude = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
+    _accelerometerSubscription = accelerometerEvents.listen((
+      AccelerometerEvent event,
+    ) {
+      double magnitude = sqrt(
+        event.x * event.x + event.y * event.y + event.z * event.z,
+      );
 
-      if (magnitude > _shakeThreshold && DateTime.now().difference(_lastShakeTime).inMilliseconds > 500) {
+      if (magnitude > _shakeThreshold &&
+          DateTime.now().difference(_lastShakeTime).inMilliseconds > 500) {
         _lastShakeTime = DateTime.now();
         _shakeCount++;
 
@@ -82,12 +103,14 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
   Future<void> _fetchProductsWithFilters() async {
     if (!mounted) return;
 
-    // Menambahkan pengecekan kategori yang tidak digunakan
-    // String? categoryFilter = _selectedCategory == 'All' ? null : _selectedCategory;
+    // Convert Set to List for API call, or pass as comma-separated string
+    List<String>? brandFilters = _selectedBrandFilters.isNotEmpty
+        ? _selectedBrandFilters.toList()
+        : null;
 
     await Provider.of<ProductProvider>(context, listen: false).fetchProducts(
       search: _searchController.text.isEmpty ? null : _searchController.text,
-      brand: _selectedBrandFilter,
+      brands: brandFilters, // Changed from single brand to multiple brands
       minPrice: _minPriceFilter,
       maxPrice: _maxPriceFilter,
       // category: categoryFilter, // Uncomment jika API mendukung filter kategori
@@ -97,7 +120,7 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
   void _resetSearchAndFilters() {
     setState(() {
       _searchController.clear();
-      _selectedBrandFilter = null;
+      _selectedBrandFilters.clear();
       _minPriceFilter = null;
       _maxPriceFilter = null;
       _selectedCategory = 'All';
@@ -106,6 +129,11 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
   }
 
   void _showFilterBottomSheet() {
+    // Create temporary variables for the bottom sheet
+    Set<String> tempSelectedBrands = Set.from(_selectedBrandFilters);
+    double? tempMinPrice = _minPriceFilter;
+    double? tempMaxPrice = _maxPriceFilter;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -129,38 +157,113 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                   ),
                   const Divider(),
                   const SizedBox(height: 10),
-                  Text('Brand', style: Theme.of(context).textTheme.titleMedium),
+
+                  // Brand Filter Section
+                  Text(
+                    'Brand (Multiple Selection)',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
                   Wrap(
                     spacing: 8.0,
-                    children: _availableBrands.map((brand) => ChoiceChip(
-                      label: Text(brand),
-                      selected: _selectedBrandFilter == brand,
-                      onSelected: (bool selected) {
-                        setStateBottomSheet(() {
-                          _selectedBrandFilter = selected ? brand : null;
-                        });
-                      },
-                    )).toList(),
+                    runSpacing: 4.0,
+                    children: _availableBrands
+                        .map(
+                          (brand) => FilterChip(
+                            label: Text(brand),
+                            selected: tempSelectedBrands.contains(brand),
+                            onSelected: (bool selected) {
+                              setStateBottomSheet(() {
+                                if (selected) {
+                                  tempSelectedBrands.add(brand);
+                                } else {
+                                  tempSelectedBrands.remove(brand);
+                                }
+                              });
+                            },
+                            selectedColor: Colors.black.withOpacity(0.8),
+                            checkmarkColor: Colors.white,
+                            labelStyle: TextStyle(
+                              color: tempSelectedBrands.contains(brand)
+                                  ? Colors.white
+                                  : Colors.black87,
+                              fontWeight: tempSelectedBrands.contains(brand)
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                            backgroundColor: Colors.grey[200],
+                          ),
+                        )
+                        .toList(),
                   ),
-                  const SizedBox(height: 10),
-                  Text('Min Price', style: Theme.of(context).textTheme.titleMedium),
-                  TextField(
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(hintText: 'e.g. 500000'),
-                    onChanged: (value) {
-                      _minPriceFilter = double.tryParse(value);
-                    },
+
+                  if (tempSelectedBrands.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Selected: ${tempSelectedBrands.join(', ')}',
+                        style: const TextStyle(
+                          color: Colors.blue,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 16),
+
+                  // Price Filter Section
+                  Text(
+                    'Price Range',
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  const SizedBox(height: 10),
-                  Text('Max Price', style: Theme.of(context).textTheme.titleMedium),
-                  TextField(
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(hintText: 'e.g. 2000000'),
-                    onChanged: (value) {
-                      _maxPriceFilter = double.tryParse(value);
-                    },
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Min Price',
+                            hintText: 'e.g. 500000',
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: (value) {
+                            tempMinPrice = double.tryParse(value);
+                          },
+                          controller: TextEditingController(
+                            text: tempMinPrice?.toString() ?? '',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: TextField(
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Max Price',
+                            hintText: 'e.g. 2000000',
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: (value) {
+                            tempMaxPrice = double.tryParse(value);
+                          },
+                          controller: TextEditingController(
+                            text: tempMaxPrice?.toString() ?? '',
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
+
                   const SizedBox(height: 20),
+
+                  // Action Buttons
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
@@ -168,7 +271,7 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                         child: OutlinedButton(
                           onPressed: () {
                             setState(() {
-                              _selectedBrandFilter = null;
+                              _selectedBrandFilters.clear();
                               _minPriceFilter = null;
                               _maxPriceFilter = null;
                               _searchController.clear();
@@ -177,14 +280,18 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                             _fetchProductsWithFilters();
                             Navigator.pop(context);
                           },
-                          child: const Text('Clear Filter'),
+                          child: const Text('Clear All'),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () {
-                            setState(() {});
+                            setState(() {
+                              _selectedBrandFilters = tempSelectedBrands;
+                              _minPriceFilter = tempMinPrice;
+                              _maxPriceFilter = tempMaxPrice;
+                            });
                             _fetchProductsWithFilters();
                             Navigator.pop(context);
                           },
@@ -216,8 +323,6 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Hapus IconButton menu di kiri atas
-
               const Text(
                 'Sneakerin',
                 style: TextStyle(
@@ -229,10 +334,9 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
               IconButton(
                 icon: const Icon(Icons.logout),
                 onPressed: () {
-                  // Hapus token, session, dsb jika perlu di sini
-
-                  // Pindah ke halaman login dan hapus semua halaman sebelumnya
-                  Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                  Navigator.of(
+                    context,
+                  ).pushNamedAndRemoveUntil('/login', (route) => false);
                 },
               ),
             ],
@@ -284,11 +388,31 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
         ),
         const SizedBox(height: 20),
 
-        // Filter Merek (Horizontal)
+        // Filter Merek (Horizontal Scrollable)
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Text('Filter by Brand', style: Theme.of(context).textTheme.titleMedium),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Filter by Brand',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              if (_selectedBrandFilters.isNotEmpty)
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _selectedBrandFilters.clear();
+                    });
+                    _fetchProductsWithFilters();
+                  },
+                  child: Text('Clear (${_selectedBrandFilters.length})'),
+                ),
+            ],
+          ),
         ),
+
+        // Horizontal Scrollable Brand Filter
         SizedBox(
           height: 50,
           child: ListView.builder(
@@ -297,28 +421,72 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
             itemCount: _availableBrands.length,
             itemBuilder: (context, index) {
               String brand = _availableBrands[index];
+              bool isSelected = _selectedBrandFilters.contains(brand);
+
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                child: ChoiceChip(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: FilterChip(
                   label: Text(brand),
-                  selected: _selectedBrandFilter == brand,
+                  selected: isSelected,
                   onSelected: (bool selected) {
                     setState(() {
-                      _selectedBrandFilter = selected ? brand : null;
+                      if (selected) {
+                        _selectedBrandFilters.add(brand);
+                      } else {
+                        _selectedBrandFilters.remove(brand);
+                      }
                     });
                     _fetchProductsWithFilters();
                   },
                   selectedColor: Colors.black,
+                  checkmarkColor: Colors.white,
                   labelStyle: TextStyle(
-                    color: _selectedBrandFilter == brand ? Colors.white : Colors.black87,
-                    fontWeight: _selectedBrandFilter == brand ? FontWeight.bold : FontWeight.normal,
+                    color: isSelected ? Colors.white : Colors.black87,
+                    fontWeight: isSelected
+                        ? FontWeight.bold
+                        : FontWeight.normal,
                   ),
                   backgroundColor: Colors.grey[200],
+                  showCheckmark: true,
                 ),
               );
             },
           ),
         ),
+
+        // Show selected filters indicator
+        if (_selectedBrandFilters.isNotEmpty ||
+            _minPriceFilter != null ||
+            _maxPriceFilter != null)
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            padding: const EdgeInsets.all(12.0),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue.withOpacity(0.3)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Active Filters:',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                if (_selectedBrandFilters.isNotEmpty)
+                  Text('Brands: ${_selectedBrandFilters.join(', ')}'),
+                if (_minPriceFilter != null || _maxPriceFilter != null)
+                  Text(
+                    'Price: ${_minPriceFilter != null ? 'Rp ${_minPriceFilter!.toStringAsFixed(0)}' : 'Min'} - ${_maxPriceFilter != null ? 'Rp ${_maxPriceFilter!.toStringAsFixed(0)}' : 'Max'}',
+                  ),
+              ],
+            ),
+          ),
+
         const SizedBox(height: 10),
 
         // Search Bar
@@ -338,7 +506,10 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                     ),
                     filled: true,
                     fillColor: Colors.grey[100],
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 10,
+                      horizontal: 10,
+                    ),
                   ),
                   onSubmitted: (value) {
                     _fetchProductsWithFilters();
@@ -346,7 +517,15 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.filter_list, color: Colors.grey),
+                icon: Icon(
+                  Icons.filter_list,
+                  color:
+                      (_selectedBrandFilters.isNotEmpty ||
+                          _minPriceFilter != null ||
+                          _maxPriceFilter != null)
+                      ? Colors.blue
+                      : Colors.grey,
+                ),
                 onPressed: _showFilterBottomSheet,
               ),
             ],
@@ -359,104 +538,125 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
           child: productProvider.isLoading
               ? const Center(child: CircularProgressIndicator())
               : productProvider.errorMessage != null
-                  ? Center(child: Text('Error: ${productProvider.errorMessage}'))
-                  : productProvider.products.isEmpty
-                      ? const Center(child: Text('Tidak ada produk ditemukan.'))
-                      : RefreshIndicator(
-                          onRefresh: _fetchProductsWithFilters,
-                          child: GridView.builder(
-                            padding: const EdgeInsets.all(10.0),
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              childAspectRatio: 0.7,
-                              crossAxisSpacing: 10,
-                              mainAxisSpacing: 10,
-                            ),
-                            itemCount: productProvider.products.length,
-                            itemBuilder: (ctx, i) {
-                              final product = productProvider.products[i];
-                              return Card(
-                                elevation: 4,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                                clipBehavior: Clip.antiAlias,
-                                child: InkWell(
-                                  onTap: () {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (context) => ProductDetailScreen(productId: product.id),
-                                      ),
-                                    );
-                                  },
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Expanded(
-                                        child: Stack(
-                                          children: [
-                                            Positioned.fill(
-                                              child: product.imageUrl != null && product.imageUrl!.isNotEmpty
-                                                  ? Image.network(
-                                                      product.imageUrl!,
-                                                      fit: BoxFit.cover,
-                                                      errorBuilder: (context, error, stackTrace) {
-                                                        return Image.asset(
-                                                          'assets/paperbag.jpg',
-                                                          fit: BoxFit.cover,
-                                                        );
-                                                      },
-                                                    )
-                                                  : Image.asset(
+              ? Center(child: Text('Error: ${productProvider.errorMessage}'))
+              : productProvider.products.isEmpty
+              ? const Center(child: Text('Tidak ada produk ditemukan.'))
+              : RefreshIndicator(
+                  onRefresh: _fetchProductsWithFilters,
+                  child: GridView.builder(
+                    padding: const EdgeInsets.all(10.0),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 0.7,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                        ),
+                    itemCount: productProvider.products.length,
+                    itemBuilder: (ctx, i) {
+                      final product = productProvider.products[i];
+                      return Card(
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: InkWell(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    ProductDetailScreen(productId: product.id),
+                              ),
+                            );
+                          },
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Stack(
+                                  children: [
+                                    Positioned.fill(
+                                      child:
+                                          product.imageUrl != null &&
+                                              product.imageUrl!.isNotEmpty
+                                          ? Image.network(
+                                              product.imageUrl!,
+                                              fit: BoxFit.cover,
+                                              errorBuilder:
+                                                  (context, error, stackTrace) {
+                                                    return Image.asset(
                                                       'assets/paperbag.jpg',
                                                       fit: BoxFit.cover,
-                                                    ),
+                                                    );
+                                                  },
+                                            )
+                                          : Image.asset(
+                                              'assets/paperbag.jpg',
+                                              fit: BoxFit.cover,
                                             ),
-                                            Positioned(
-                                              bottom: 8,
-                                              right: 8,
-                                              child: Container(
-                                                padding: const EdgeInsets.all(4),
-                                                decoration: const BoxDecoration(
-                                                  color: Colors.black,
-                                                  shape: BoxShape.circle,
-                                                ),
-                                                child: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
-                                              ),
-                                            ),
-                                          ],
+                                    ),
+                                    Positioned(
+                                      bottom: 8,
+                                      right: 8,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.black,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.arrow_forward_ios,
+                                          color: Colors.white,
+                                          size: 16,
                                         ),
                                       ),
-                                      Padding(
-                                        padding: const EdgeInsets.all(12.0),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              product.name,
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            Text(
-                                              product.brand ?? 'Unknown Brand',
-                                              style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            const SizedBox(height: 5),
-                                            Text(
-                                              'Rp ${product.price.toStringAsFixed(0)}',
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.black),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
-                              );
-                            },
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(12.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      product.name,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      product.brand ?? 'Unknown',
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 12,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      'Rp ${product.price.toStringAsFixed(0)}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
+                      );
+                    },
+                  ),
+                ),
         ),
       ],
     );

@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shoe_store_app/services/local_storage_service.dart';
 
-const String baseUrl = 'http://localhost:5000/api'; 
+const String baseUrl = 'https://sepatu-be101-981623652580.us-central1.run.app/api'; 
 // const String baseUrl = 'http://192.168.71.144:5000/api'; 
 
 class UtilityApi {

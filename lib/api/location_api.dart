@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shoe_store_app/services/local_storage_service.dart';
 import 'package:shoe_store_app/models/shoe_store.dart'; // Akan dibuat setelah ini
 
-const String baseUrl = 'http://localhost:5000/api'; 
+const String baseUrl = 'https://sepatu-be101-981623652580.us-central1.run.app/api'; 
 // const String baseUrl = 'http://192.168.71.144:5000/api'; 
 
 

@@ -5,7 +5,7 @@ import 'package:shoe_store_app/models/order.dart'; // Akan kita buat setelah ini
 import 'package:shoe_store_app/models/product.dart'; // Untuk include product details in order
 
 // Pastikan baseUrl ini sama dengan yang di auth_api.dart dan product_api.dart
-const String baseUrl = 'http://localhost:5000/api'; 
+const String baseUrl = 'https://sepatu-be101-981623652580.us-central1.run.app/api'; 
 // const String baseUrl = 'http://192.168.71.144:5000/api'; 
 
 class OrderApi {

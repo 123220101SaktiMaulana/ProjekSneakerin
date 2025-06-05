@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:shoe_store_app/models/product.dart';
 import 'package:shoe_store_app/api/product_api.dart';
 import 'package:shoe_store_app/api/order_api.dart';
-import 'package:shoe_store_app/api/utility_api.dart'; // Import UtilityApi baru
+import 'package:shoe_store_app/api/utility_api.dart';
 import 'package:shoe_store_app/providers/auth_provider.dart';
 import 'package:shoe_store_app/screens/profile/order_history_screen.dart';
 
@@ -21,20 +21,21 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   int _selectedQuantity = 1;
+  bool _isFavorite = false;
 
   // State untuk Konversi Mata Uang
-  String _selectedCurrency = 'IDR'; // Default ke IDR
+  String _selectedCurrency = 'IDR';
   double _convertedPrice = 0.0;
   double _convertedTotalPrice = 0.0;
-  Map<String, double> _currencyRates = {}; // Untuk menyimpan kurs
+  Map<String, double> _currencyRates = {};
 
-  // List mata uang yang didukung (harus sama dengan backend)
+  // List mata uang yang didukung
   final List<String> _supportedCurrencies = ['IDR', 'USD', 'SGD', 'MYR'];
 
   @override
   void initState() {
     super.initState();
-    _fetchProductDetailsAndRates(); // Memuat detail produk dan kurs
+    _fetchProductDetailsAndRates();
   }
 
   Future<void> _fetchProductDetailsAndRates() async {
@@ -44,24 +45,22 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     });
     try {
       final product = await ProductApi().getProductById(widget.productId);
-      final ratesData = await UtilityApi().getCurrencyRates(); // Ambil kurs dari backend
+      final ratesData = await UtilityApi().getCurrencyRates();
 
       setState(() {
         _product = product;
-        // Lebih toleran terhadap tipe data rates (int/double)
         _currencyRates = {};
         (ratesData['rates'] as Map<String, dynamic>).forEach((key, value) {
           _currencyRates[key] = (value is num) ? value.toDouble() : double.tryParse(value.toString()) ?? 1.0;
         });
         _isLoading = false;
-        _updateConvertedPrices(); // Hitung harga konversi awal setelah data ada
+        _updateConvertedPrices();
       });
     } catch (e) {
       setState(() {
         _errorMessage = 'Failed to load details or rates: ${e.toString()}';
         _isLoading = false;
       });
-      print('Error fetching product details or rates: $e');
     }
   }
 
@@ -70,15 +69,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       return;
     }
 
-    // Asumsi harga dasar produk di backend adalah IDR (sesuai constants.js kita)
     double basePriceInIdr = _product!.price;
-
-    // Untuk mengonversi dari IDR ke mata uang terpilih:
-    // Cukup kalikan harga dasar dengan kurs mata uang target yang diberikan oleh backend (1 IDR = X USD, dst.)
     _convertedPrice = basePriceInIdr * (_currencyRates[_selectedCurrency] ?? 1.0);
     _convertedTotalPrice = _convertedPrice * _selectedQuantity;
-
-    // Trigger rebuild agar UI diperbarui
     setState(() {});
   }
 
@@ -86,7 +79,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? Colors.red : Colors.green,
+        backgroundColor: isError ? Colors.red : Colors.blue.shade600,
         duration: const Duration(seconds: 2),
       ),
     );
@@ -106,7 +99,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
 
     setState(() {
-      _isLoading = true; // Set loading for purchase action
+      _isLoading = true;
     });
 
     try {
@@ -118,9 +111,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
       if (success) {
         _showSnackBar('Purchase successful!');
-        // Refresh product details and rates to show updated stock
-        await _fetchProductDetailsAndRates(); 
-        // Navigasi ke halaman riwayat pembelian
+        await _fetchProductDetailsAndRates();
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const OrderHistoryScreen()),
         );
@@ -129,7 +120,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       }
     } catch (e) {
       _showSnackBar('Error during purchase: ${e.toString()}', isError: true);
-      print('Error during purchase: $e');
     } finally {
       setState(() {
         _isLoading = false;
@@ -140,204 +130,412 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_product?.name ?? 'Product Details'),
-      ),
+      backgroundColor: Colors.grey.shade50,
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: Colors.blue))
           : _errorMessage != null
               ? Center(child: Text(_errorMessage!))
               : _product == null
                   ? const Center(child: Text('Product not found.'))
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Gambar Produk
-                          Center(
-                            child: _product!.imageUrl != null && _product!.imageUrl!.isNotEmpty
-                                ? Image.network(
-                                    _product!.imageUrl!,
-                                    height: 250,
-                                    fit: BoxFit.contain,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Image.asset(
-                                        'assets/paperbag.jpg',
-                                        height: 250,
-                                        fit: BoxFit.contain,
-                                      );
-                                    },
-                                  )
-                                : Image.asset(
-                                    'assets/paperbag.jpg',
-                                    height: 250,
-                                    fit: BoxFit.contain,
+                  : Stack(
+                      children: [
+                        SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Header dengan gambar produk
+                              Container(
+                                height: 400,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.blue.shade50,
+                                      Colors.white,
+                                    ],
                                   ),
-                          ),
-                          const SizedBox(height: 20),
-
-                          // Nama Produk
-                          Text(
-                            _product!.name,
-                            style: const TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-
-                          // Brand
-                          Text(
-                            _product!.brand ?? 'Unknown Brand',
-                            style: TextStyle(
-                              fontSize: 18,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Pemilihan Mata Uang
-                          Row(
-                            children: [
-                              const Text(
-                                'Tampilkan Harga dalam: ',
-                                style: TextStyle(fontSize: 16),
+                                ),
+                                child: Stack(
+                                  children: [
+                                    // Gambar produk
+                                    Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(top: 80, bottom: 20),
+                                        child: _product!.imageUrl != null && _product!.imageUrl!.isNotEmpty
+                                            ? Image.network(
+                                                _product!.imageUrl!,
+                                                height: 280,
+                                                fit: BoxFit.contain,
+                                                errorBuilder: (context, error, stackTrace) {
+                                                  return Image.asset(
+                                                    'assets/paperbag.jpg',
+                                                    height: 280,
+                                                    fit: BoxFit.contain,
+                                                  );
+                                                },
+                                              )
+                                            : Image.asset(
+                                                'assets/paperbag.jpg',
+                                                height: 280,
+                                                fit: BoxFit.contain,
+                                              ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              DropdownButton<String>(
-                                value: _selectedCurrency,
-                                items: _supportedCurrencies.map((String currency) {
-                                  return DropdownMenuItem<String>(
-                                    value: currency,
-                                    child: Text(currency),
-                                  );
-                                }).toList(),
-                                onChanged: (String? newValue) {
-                                  if (newValue != null) {
-                                    setState(() {
-                                      _selectedCurrency = newValue;
-                                      _updateConvertedPrices(); // Perbarui harga saat mata uang berubah
-                                    });
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
 
-                          // Harga Produk (Telah Dikonversi)
-                          Text(
-                            '${_selectedCurrency} ${_convertedPrice.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
+                              // Content area
+                              Container(
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(24),
+                                    topRight: Radius.circular(24),
+                                  ),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(24.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      // Nama produk dan brand
+                                      Text(
+                                        _product!.name,
+                                        style: const TextStyle(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        _product!.brand ?? 'Unknown Brand',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 20),
 
-                          // Deskripsi
-                          Text(
-                            _product!.description ?? 'No description available for this product.',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                          const SizedBox(height: 24),
+                                      // Pemilihan mata uang
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(color: Colors.grey.shade200),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(0.05),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.currency_exchange, color: Colors.blue.shade700, size: 20),
+                                            const SizedBox(width: 8),
+                                            const Text(
+                                              'Currency: ',
+                                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black87),
+                                            ),
+                                            DropdownButton<String>(
+                                              value: _selectedCurrency,
+                                              underline: const SizedBox(),
+                                              items: _supportedCurrencies.map((String currency) {
+                                                return DropdownMenuItem<String>(
+                                                  value: currency,
+                                                  child: Text(
+                                                    currency,
+                                                    style: TextStyle(
+                                                      color: Colors.blue.shade700,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                );
+                                              }).toList(),
+                                              onChanged: (String? newValue) {
+                                                if (newValue != null) {
+                                                  setState(() {
+                                                    _selectedCurrency = newValue;
+                                                    _updateConvertedPrices();
+                                                  });
+                                                }
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 20),
 
-                          // Stok
-                          Row(
-                            children: [
-                              const Text(
-                                'Stok Tersedia: ',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                              ),
-                              Text(
-                                '${_product!.stock}',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: _product!.stock > 0 ? Colors.green : Colors.red,
-                                  fontWeight: FontWeight.bold,
+                                      // Harga
+                                      Text(
+                                        '${_selectedCurrency} ${_convertedPrice.toStringAsFixed(2)}',
+                                        style: TextStyle(
+                                          fontSize: 32,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.blue.shade700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 24),
+
+                                      // Descriptions
+                                      const Text(
+                                        'Description',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+
+                                      // Deskripsi produk
+                                      Text(
+                                        _product!.description ?? 'No description available for this product.',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.grey.shade700,
+                                          height: 1.5,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 20),
+
+                                      // Stok info
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: _product!.stock > 0 ? Colors.green.shade300 : Colors.red.shade300,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(0.05),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              _product!.stock > 0 ? Icons.check_circle_outline : Icons.error_outline,
+                                              color: _product!.stock > 0 ? Colors.green.shade600 : Colors.red.shade600,
+                                              size: 20,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              'Stock Available: ${_product!.stock}',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                                color: _product!.stock > 0 ? Colors.green.shade700 : Colors.red.shade700,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 24),
+
+                                      // Quantity selector
+                                      if (_product!.stock > 0)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(color: Colors.grey.shade200),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.05),
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              const Text(
+                                                'Quantity: ',
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.black87,
+                                                ),
+                                              ),
+                                              const Spacer(),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.blue.shade50,
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  border: Border.all(color: Colors.blue.shade200),
+                                                ),
+                                                child: DropdownButton<int>(
+                                                  value: _selectedQuantity,
+                                                  underline: const SizedBox(),
+                                                  items: List.generate(
+                                                    _product!.stock > 10 ? 10 : _product!.stock,
+                                                    (index) => index + 1,
+                                                  ).map((qty) => DropdownMenuItem<int>(
+                                                    value: qty,
+                                                    child: Text(
+                                                      qty.toString(),
+                                                      style: TextStyle(
+                                                        color: Colors.blue.shade700,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  )).toList(),
+                                                  onChanged: (value) {
+                                                    if (value != null) {
+                                                      setState(() {
+                                                        _selectedQuantity = value;
+                                                        _updateConvertedPrices();
+                                                      });
+                                                    }
+                                                  },
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      const SizedBox(height: 24),
+
+                                      // Total price
+                                      if (_product!.stock > 0)
+                                        Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.all(20),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blue.shade700,
+                                            borderRadius: BorderRadius.circular(16),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.blue.shade300.withOpacity(0.3),
+                                                blurRadius: 12,
+                                                offset: const Offset(0, 4),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Column(
+                                            children: [
+                                              const Text(
+                                                'Total Price',
+                                                style: TextStyle(
+                                                  color: Colors.white70,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                '${_selectedCurrency} ${_convertedTotalPrice.toStringAsFixed(2)}',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 24,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      const SizedBox(height: 100), // Space for floating buttons
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 24),
+                        ),
 
-                          // Pemilihan Kuantitas
-                          if (_product!.stock > 0)
-                            Row(
+                        // Floating App Bar
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          child: Container(
+                            padding: EdgeInsets.only(
+                              top: MediaQuery.of(context).padding.top + 16,
+                              left: 24,
+                              right: 24,
+                              bottom: 16,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
-                                  'Jumlah: ',
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                ),
-                                DropdownButton<int>(
-                                  value: _selectedQuantity,
-                                  items: List.generate(_product!.stock > 10 ? 10 : _product!.stock, (index) => index + 1)
-                                      .map((qty) => DropdownMenuItem<int>(
-                                            value: qty,
-                                            child: Text(qty.toString()),
-                                          ))
-                                      .toList(),
-                                  onChanged: (value) {
-                                    if (value != null) {
-                                      setState(() {
-                                        _selectedQuantity = value;
-                                        _updateConvertedPrices(); // Perbarui total harga saat kuantitas berubah
-                                      });
-                                    }
-                                  },
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: IconButton(
+                                    icon: const Icon(Icons.arrow_back, size: 20),
+                                    onPressed: () => Navigator.of(context).pop(),
+                                  ),
                                 ),
                               ],
                             ),
-                          const SizedBox(height: 24),
+                          ),
+                        ),
 
-                          // Total Harga Pembelian (Telah Dikonversi)
-                          if (_product!.stock > 0)
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: Text(
-                                'Total: ${_selectedCurrency} ${_convertedTotalPrice.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.deepOrange,
-                                ),
+                        // Floating bottom buttons
+                        if (_product!.stock > 0)
+                          Positioned(
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(24),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, -5),
+                                  ),
+                                ],
                               ),
-                            ),
-                          const SizedBox(height: 24),
-
-                          // Tombol Beli Sekarang
-                          Center(
-                            child: _isLoading // Loading indicator saat membeli
-                                ? const CircularProgressIndicator()
-                                : _product!.stock > 0
-                                    ? ElevatedButton(
-                                        onPressed: _buyNow,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.deepPurple,
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(10),
-                                          ),
+                              child: _isLoading
+                                  ? const Center(
+                                      child: CircularProgressIndicator(color: Colors.blue),
+                                    )
+                                  : ElevatedButton(
+                                      onPressed: _buyNow,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.blue.shade700,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(vertical: 16),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(16),
                                         ),
-                                        child: const Text(
-                                          'Beli Sekarang',
-                                          style: TextStyle(fontSize: 18),
-                                        ),
-                                      )
-                                    : Text(
-                                        'Stok Habis',
+                                        elevation: 2,
+                                      ),
+                                      child: const Text(
+                                        'Buy Now',
                                         style: TextStyle(
                                           fontSize: 18,
-                                          color: Colors.red,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
+                                    ),
+                            ),
                           ),
-                          const SizedBox(height: 20),
-                        ],
-                      ),
+                      ],
                     ),
     );
   }
