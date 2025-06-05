@@ -91,6 +91,7 @@ flutter:
   - assets/iklan1.jpg
   - assets/ads2.jpg
   - assets/ads3.jpg
+  - assets/logo.jpg
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

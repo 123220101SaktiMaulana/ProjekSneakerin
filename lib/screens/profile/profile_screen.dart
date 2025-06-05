@@ -161,6 +161,7 @@ class ProfileScreen extends StatelessWidget {
 
                   // Message Section
                   Container(
+                    width: double.infinity,
                     margin: const EdgeInsets.all(20),
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
