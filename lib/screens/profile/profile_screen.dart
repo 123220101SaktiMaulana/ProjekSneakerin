@@ -179,12 +179,16 @@ class ProfileScreen extends StatelessWidget {
                               color: Colors.grey.shade600,
                             ),
                             const SizedBox(width: 8),
-                            const Text(
-                              'Pesan dan Kesan Mata Kuliah',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black87,
+                            Expanded(
+                              child: const Text(
+                                'Pesan dan Kesan Mata Kuliah',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],

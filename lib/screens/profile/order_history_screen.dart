@@ -119,10 +119,10 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen>
           ),
         ),
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.black54),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        // leading: IconButton(
+        //   icon: const Icon(Icons.arrow_back_ios, color: Colors.black54),
+        //   onPressed: () => Navigator.of(context).pop(),
+        // ),
         actions: [
           // Timezone Dropdown
           Container(

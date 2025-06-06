@@ -8,6 +8,213 @@ import 'package:shoe_store_app/models/product.dart';
 import 'package:shoe_store_app/screens/home/product_detail_screen.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 
+// Widget terpisah untuk Carousel agar tidak ter-refresh
+class AdCarouselWidget extends StatefulWidget {
+  final List<String> adImages;
+
+  const AdCarouselWidget({super.key, required this.adImages});
+
+  @override
+  State<AdCarouselWidget> createState() => _AdCarouselWidgetState();
+}
+
+class _AdCarouselWidgetState extends State<AdCarouselWidget> {
+  @override
+  Widget build(BuildContext context) {
+    return CarouselSlider(
+      options: CarouselOptions(
+        height: 200.0,
+        autoPlay: true,
+        enlargeCenterPage: true,
+        aspectRatio: 16 / 9,
+        autoPlayCurve: Curves.fastOutSlowIn,
+        enableInfiniteScroll: true,
+        autoPlayAnimationDuration: const Duration(milliseconds: 800),
+        viewportFraction: 0.8,
+      ),
+      items: widget.adImages.map((image) {
+        return Builder(
+          builder: (BuildContext context) {
+            return Container(
+              width: MediaQuery.of(context).size.width,
+              margin: const EdgeInsets.symmetric(horizontal: 5.0),
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.asset(
+                  image,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: Colors.grey[300],
+                      child: const Center(
+                        child: Icon(Icons.error, color: Colors.grey),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            );
+          },
+        );
+      }).toList(),
+    );
+  }
+}
+
+// Widget terpisah untuk ProductGrid agar bisa di-rebuild secara independen
+class ProductGridWidget extends StatelessWidget {
+  final List<Product> products;
+  final bool isLoading;
+  final String? errorMessage;
+  final VoidCallback onRefresh;
+
+  const ProductGridWidget({
+    super.key,
+    required this.products,
+    required this.isLoading,
+    this.errorMessage,
+    required this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return const SliverFillRemaining(
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (errorMessage != null) {
+      return SliverFillRemaining(
+        child: Center(child: Text('Error: $errorMessage')),
+      );
+    }
+
+    if (products.isEmpty) {
+      return const SliverFillRemaining(
+        child: Center(child: Text('Tidak ada produk ditemukan.')),
+      );
+    }
+
+    return SliverGrid(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.7,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+      ),
+      delegate: SliverChildBuilderDelegate((ctx, i) {
+        final product = products[i];
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10.0),
+          child: Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        ProductDetailScreen(productId: product.id),
+                  ),
+                );
+              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child:
+                              product.imageUrl != null &&
+                                  product.imageUrl!.isNotEmpty
+                              ? Image.network(
+                                  product.imageUrl!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Image.asset(
+                                      'assets/paperbag.jpg',
+                                      fit: BoxFit.cover,
+                                    );
+                                  },
+                                )
+                              : Image.asset(
+                                  'assets/paperbag.jpg',
+                                  fit: BoxFit.cover,
+                                ),
+                        ),
+                        Positioned(
+                          bottom: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.black,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.arrow_forward_ios,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          product.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          product.brand ?? 'Unknown',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 12,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          'Rp ${product.price.toStringAsFixed(0)}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }, childCount: products.length),
+    );
+  }
+}
+
 class HomeTabScreen extends StatefulWidget {
   const HomeTabScreen({super.key});
 
@@ -56,6 +263,9 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
     'assets/ads2.jpg',
     'assets/ads3.jpg',
   ];
+
+  // Key untuk mempertahankan state carousel
+  final GlobalKey<_AdCarouselWidgetState> _carouselKey = GlobalKey();
 
   @override
   void initState() {
@@ -312,12 +522,10 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final productProvider = Provider.of<ProductProvider>(context);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Top Bar Kustom
+        // Top Bar Kustom - Fixed di atas
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
           decoration: BoxDecoration(
@@ -391,9 +599,6 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                   child: InkWell(
                     borderRadius: BorderRadius.circular(14),
                     onTap: () {
-                      // Haptic feedback untuk feel yang premium
-                      // HapticFeedback.lightImpact(); // Uncomment jika ingin haptic
-
                       showDialog(
                         context: context,
                         barrierDismissible: false,
@@ -486,156 +691,10 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 16),
 
-        // Carousel Slider untuk Iklan
-        CarouselSlider(
-          options: CarouselOptions(
-            height: 200.0,
-            autoPlay: true,
-            enlargeCenterPage: true,
-            aspectRatio: 16 / 9,
-            autoPlayCurve: Curves.fastOutSlowIn,
-            enableInfiniteScroll: true,
-            autoPlayAnimationDuration: const Duration(milliseconds: 800),
-            viewportFraction: 0.8,
-          ),
-          items: _adImages.map((image) {
-            return Builder(
-              builder: (BuildContext context) {
-                return Container(
-                  width: MediaQuery.of(context).size.width,
-                  margin: const EdgeInsets.symmetric(horizontal: 5.0),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.asset(
-                      image,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: Colors.grey[300],
-                          child: const Center(
-                            child: Icon(Icons.error, color: Colors.grey),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                );
-              },
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 20),
-
-        // Filter Merek (Horizontal Scrollable)
+        // Search Bar - Fixed di atas
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Filter by Brand',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              if (_selectedBrandFilters.isNotEmpty)
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _selectedBrandFilters.clear();
-                    });
-                    _fetchProductsWithFilters();
-                  },
-                  child: Text('Clear (${_selectedBrandFilters.length})'),
-                ),
-            ],
-          ),
-        ),
-
-        // Horizontal Scrollable Brand Filter
-        SizedBox(
-          height: 50,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            itemCount: _availableBrands.length,
-            itemBuilder: (context, index) {
-              String brand = _availableBrands[index];
-              bool isSelected = _selectedBrandFilters.contains(brand);
-
-              return Padding(
-                padding: const EdgeInsets.only(right: 8.0),
-                child: FilterChip(
-                  label: Text(brand),
-                  selected: isSelected,
-                  onSelected: (bool selected) {
-                    setState(() {
-                      if (selected) {
-                        _selectedBrandFilters.add(brand);
-                      } else {
-                        _selectedBrandFilters.remove(brand);
-                      }
-                    });
-                    _fetchProductsWithFilters();
-                  },
-                  selectedColor: Colors.black,
-                  checkmarkColor: Colors.white,
-                  labelStyle: TextStyle(
-                    color: isSelected ? Colors.white : Colors.black87,
-                    fontWeight: isSelected
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                  ),
-                  backgroundColor: Colors.grey[200],
-                  showCheckmark: true,
-                ),
-              );
-            },
-          ),
-        ),
-
-        // Show selected filters indicator
-        if (_selectedBrandFilters.isNotEmpty ||
-            _minPriceFilter != null ||
-            _maxPriceFilter != null)
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            padding: const EdgeInsets.all(12.0),
-            decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.blue.withOpacity(0.3)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Active Filters:',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                if (_selectedBrandFilters.isNotEmpty)
-                  Text('Brands: ${_selectedBrandFilters.join(', ')}'),
-                if (_minPriceFilter != null || _maxPriceFilter != null)
-                  Text(
-                    'Price: ${_minPriceFilter != null ? 'Rp ${_minPriceFilter!.toStringAsFixed(0)}' : 'Min'} - ${_maxPriceFilter != null ? 'Rp ${_maxPriceFilter!.toStringAsFixed(0)}' : 'Max'}',
-                  ),
-              ],
-            ),
-          ),
-
-        const SizedBox(height: 10),
-
-        // Search Bar
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          padding: const EdgeInsets.all(16.0),
           child: Row(
             children: [
               Expanded(
@@ -675,132 +734,157 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 10),
 
-        // Grid Produk
+        // Expanded ScrollView dengan Carousel yang tidak ter-refresh
         Expanded(
-          child: productProvider.isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : productProvider.errorMessage != null
-              ? Center(child: Text('Error: ${productProvider.errorMessage}'))
-              : productProvider.products.isEmpty
-              ? const Center(child: Text('Tidak ada produk ditemukan.'))
-              : RefreshIndicator(
-                  onRefresh: _fetchProductsWithFilters,
-                  child: GridView.builder(
-                    padding: const EdgeInsets.all(10.0),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          childAspectRatio: 0.7,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 10,
+          child: CustomScrollView(
+            slivers: [
+              // Carousel Slider untuk Iklan - Menggunakan key untuk mempertahankan state
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    AdCarouselWidget(key: _carouselKey, adImages: _adImages),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+
+              // Filter Merek (Horizontal Scrollable)
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Filter by Brand',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          if (_selectedBrandFilters.isNotEmpty)
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  _selectedBrandFilters.clear();
+                                });
+                                _fetchProductsWithFilters();
+                              },
+                              child: Text(
+                                'Clear (${_selectedBrandFilters.length})',
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    // Horizontal Scrollable Brand Filter
+                    SizedBox(
+                      height: 50,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        itemCount: _availableBrands.length,
+                        itemBuilder: (context, index) {
+                          String brand = _availableBrands[index];
+                          bool isSelected = _selectedBrandFilters.contains(
+                            brand,
+                          );
+
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8.0),
+                            child: FilterChip(
+                              label: Text(brand),
+                              selected: isSelected,
+                              onSelected: (bool selected) {
+                                setState(() {
+                                  if (selected) {
+                                    _selectedBrandFilters.add(brand);
+                                  } else {
+                                    _selectedBrandFilters.remove(brand);
+                                  }
+                                });
+                                _fetchProductsWithFilters();
+                              },
+                              selectedColor: Colors.black,
+                              checkmarkColor: Colors.white,
+                              labelStyle: TextStyle(
+                                color: isSelected
+                                    ? Colors.white
+                                    : Colors.black87,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                              backgroundColor: Colors.grey[200],
+                              showCheckmark: true,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+
+                    // Show selected filters indicator
+                    if (_selectedBrandFilters.isNotEmpty ||
+                        _minPriceFilter != null ||
+                        _maxPriceFilter != null)
+                      Container(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 16.0,
+                          vertical: 8.0,
                         ),
-                    itemCount: productProvider.products.length,
-                    itemBuilder: (ctx, i) {
-                      final product = productProvider.products[i];
-                      return Card(
-                        elevation: 4,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: InkWell(
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    ProductDetailScreen(productId: product.id),
-                              ),
-                            );
-                          },
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Stack(
-                                  children: [
-                                    Positioned.fill(
-                                      child:
-                                          product.imageUrl != null &&
-                                              product.imageUrl!.isNotEmpty
-                                          ? Image.network(
-                                              product.imageUrl!,
-                                              fit: BoxFit.cover,
-                                              errorBuilder:
-                                                  (context, error, stackTrace) {
-                                                    return Image.asset(
-                                                      'assets/paperbag.jpg',
-                                                      fit: BoxFit.cover,
-                                                    );
-                                                  },
-                                            )
-                                          : Image.asset(
-                                              'assets/paperbag.jpg',
-                                              fit: BoxFit.cover,
-                                            ),
-                                    ),
-                                    Positioned(
-                                      bottom: 8,
-                                      right: 8,
-                                      child: Container(
-                                        padding: const EdgeInsets.all(4),
-                                        decoration: const BoxDecoration(
-                                          color: Colors.black,
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Icon(
-                                          Icons.arrow_forward_ios,
-                                          color: Colors.white,
-                                          size: 16,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(12.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      product.name,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    Text(
-                                      product.brand ?? 'Unknown',
-                                      style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontSize: 12,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 5),
-                                    Text(
-                                      'Rp ${product.price.toStringAsFixed(0)}',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 15,
-                                        color: Colors.black,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                        padding: const EdgeInsets.all(12.0),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.blue.withOpacity(0.3),
                           ),
                         ),
-                      );
-                    },
-                  ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Active Filters:',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            if (_selectedBrandFilters.isNotEmpty)
+                              Text(
+                                'Brands: ${_selectedBrandFilters.join(', ')}',
+                              ),
+                            if (_minPriceFilter != null ||
+                                _maxPriceFilter != null)
+                              Text(
+                                'Price: ${_minPriceFilter != null ? 'Rp ${_minPriceFilter!.toStringAsFixed(0)}' : 'Min'} - ${_maxPriceFilter != null ? 'Rp ${_maxPriceFilter!.toStringAsFixed(0)}' : 'Max'}',
+                              ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 10),
+                  ],
                 ),
+              ),
+
+              // Consumer untuk hanya mendengarkan perubahan ProductProvider
+              Consumer<ProductProvider>(
+                builder: (context, productProvider, child) {
+                  return ProductGridWidget(
+                    products: productProvider.products,
+                    isLoading: productProvider.isLoading,
+                    errorMessage: productProvider.errorMessage,
+                    onRefresh: _fetchProductsWithFilters,
+                  );
+                },
+              ),
+
+              // Bottom padding untuk grid
+              const SliverToBoxAdapter(child: SizedBox(height: 20)),
+            ],
+          ),
         ),
       ],
     );
